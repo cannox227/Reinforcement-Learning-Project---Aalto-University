@@ -115,11 +115,11 @@ class PPOAgent(BaseAgent):
     def get_action(self, observation, evaluation=False):
         x = torch.from_numpy(observation).float().to(self.train_device)
         action_dist, _ = self.policy.forward(x)
+        action = action_dist.sample()
+        action = action.unsqueeze(0)
         if evaluation:
-            action = action_dist.probs.argmax()
-        else:
-            action = action_dist.sample()
-        aprob = action_dist.log_prob(action)
+            action = action_dist.log_prob(action).argmax()#action_dist.probs.argmax()
+        aprob = action_dist.log_prob(action.unsqueeze(0))
         action = action.tolist()
         return action, aprob
 

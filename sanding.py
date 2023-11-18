@@ -135,7 +135,7 @@ class SandingEnv(core.Env):
         # Randomly position the agent, the sanding, and no-sanding circles.
         # All positions are x,y coordinates of circles with fixed radius.
         self.state = self.np_random.uniform(low=self.observation_space.low,
-                                            high=self.observation_space.high)
+                                            high=self.observation_space.high).astype(np.float32)
         self.prev_state = np.copy(self.state)
 
         self.robot_positions = [self.prev_state[[0, 1]]]

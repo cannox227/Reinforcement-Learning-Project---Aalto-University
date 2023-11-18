@@ -19,8 +19,16 @@ class DDPGAgent(BaseAgent):
         self.action_dim = self.action_space_dim
         self.max_action = self.cfg.max_action
         self.lr=self.cfg.lr
-      
-        self.buffer = None
+
+        self.pi = Policy(state_dim, self.action_dim, self.max_action).to(self.device)
+        self.pi_target = copy.deepcopy(self.pi)
+        self.pi_optim = torch.optim.Adam(self.pi.parameters(), lr=float(self.lr))
+        
+        self.q = Critic(state_dim, self.action_dim).to(self.device)
+        self.q_target = copy.deepcopy(self.q)
+        self.q_optim = torch.optim.Adam(self.q.parameters(), lr=float(self.lr))
+
+        self.buffer = ReplayBuffer((state_dim,), self.action_dim, max_size=int(float(self.cfg.buffer_size)))
         
         self.batch_size = self.cfg.batch_size
         self.gamma = self.cfg.gamma
@@ -36,18 +44,86 @@ class DDPGAgent(BaseAgent):
     def update(self,):
         """ After collecting one trajectory, update the pi and q for #transition times: """
         info = {}
-       
+        update_iter = self.buffer_ptr - self.buffer_head # update the network once per transition
+
+        if self.buffer_ptr > self.random_transition: # update once we have enough data
+            for _ in range(update_iter):
+                info = self._update()
+        
+        # update the buffer_head:
+        self.buffer_head = self.buffer_ptr
         return info
 
+    def _update(self,):
+        # get batch data
+        batch = self.buffer.sample(self.batch_size, device=self.device)
+        # batch contains:
+        #    state = batch.state, shape [batch, state_dim]
+        #    action = batch.action, shape [batch, action_dim]
+        #    next_state = batch.next_state, shape [batch, state_dim]
+        #    reward = batch.reward, shape [batch, 1]
+        #    not_done = batch.not_done, shape [batch, 1]
 
+        state = batch.state
+        action = batch.action
+        next_state = batch.next_state
+        reward = batch.reward
+        not_done = batch.not_done
+
+        # compute current q 
+        with torch.no_grad():
+            current_q = self.q(state, action).requires_grad_(True)
+            next_q = self.q_target(next_state, self.pi_target(next_state))
+
+        # compute target q
+        target_q = reward + self.gamma * not_done * next_q
+        
+        # compute critic loss
+        critic_loss = F.mse_loss(current_q, target_q)
+
+        # optimize the critic
+        self.q_optim.zero_grad()
+        critic_loss.backward()
+        self.q_optim.step()
+
+        # compute actor loss
+        actor_loss = -torch.mean(self.q(state, self.pi(state)))
+
+        # optimize the actor
+        self.pi_optim.zero_grad()
+        actor_loss.backward()
+        self.pi_optim.step()
+
+        # update the target q and target pi using u.soft_update_params() function
+        cu.soft_update_params(self.q, self.q_target, self.tau)
+        cu.soft_update_params(self.pi, self.pi_target, self.tau)
+
+
+        return {}
 
     
     @torch.no_grad()
     def get_action(self, observation, evaluation=False):
-        action = None
-        return action, {} # just return a positional value
+        if observation.ndim == 1: observation = observation[None] # add the batch dimension
+        x = torch.from_numpy(observation).float().to(self.device)
 
+        if self.buffer_ptr < self.random_transition and not evaluation: # collect random trajectories for better exploration.
+            action = torch.rand(self.action_dim) * self.max_action
+        else:
+            action = self.pi(x)
+            if not evaluation:
+                expl_noise = 0.3 * self.max_action # the stddev of the expl_noise if not evaluation
+                action += torch.randn_like(action) * (expl_noise)
+                action = torch.clamp(action, -self.max_action, self.max_action)
         
+        return action, {}
+
+    def record(self, state, action, next_state, reward, done):
+        """ Save transitions to the buffer. """
+        self.buffer_ptr += 1
+        self.buffer.add(state, action, next_state, reward, done)
+
+    
     def train_iteration(self):
         #start = time.perf_counter()
         # Run actual training        
@@ -57,7 +133,7 @@ class DDPGAgent(BaseAgent):
         while not done:
             
             # Sample action from policy
-            action = None
+            action, _ = self.get_action(obs, evaluation=False) 
 
             # Perform the action on the environment, get new state and reward
             next_obs, reward, done, _, _ = self.env.step(to_numpy(action))
