@@ -10,29 +10,29 @@ class Policy(torch.nn.Module):
             self.state_space = state_space
             self.action_space = action_space
 
-        self.critic = torch.nn.Sequential(
-            torch.nn.Linear(state_space, hidden_size),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, hidden_size),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, 1)
-        )
+            self.critic = torch.nn.Sequential(
+                torch.nn.Linear(state_space, hidden_size),
+                torch.nn.ReLU(),
+                torch.nn.Linear(hidden_size, hidden_size),
+                torch.nn.ReLU(),
+                torch.nn.Linear(hidden_size, 1)
+            )
 
-        self.actor_mean = torch.nn.Sequential(
-            torch.nn.Linear(state_space, hidden_size),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, hidden_size),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, action_space)
-        )
+            self.actor_mean = torch.nn.Sequential(
+                torch.nn.Linear(state_space, hidden_size),
+                torch.nn.ReLU(),
+                torch.nn.Linear(hidden_size, hidden_size),
+                torch.nn.ReLU(),
+                torch.nn.Linear(hidden_size, action_space)
+            )
 
             self.base_logstd = base_logstd
             self.actor_logstd = base_logstd * torch.ones(action_space)
             
             self.init_weights()
 
-        self.critic.apply(self.init_weights)
-        self.actor_mean.apply(self.init_weights)
+            self.critic.apply(self.init_weights)
+            self.actor_mean.apply(self.init_weights)
 
     def init_weights(self, m):
         if type(m) is torch.nn.Linear:

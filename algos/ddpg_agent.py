@@ -72,12 +72,13 @@ class DDPGAgent(BaseAgent):
 
         # compute current q 
         with torch.no_grad():
-            current_q = self.q(state, action).requires_grad_(True)
             next_q = self.q_target(next_state, self.pi_target(next_state))
 
         # compute target q
         target_q = reward + self.gamma * not_done * next_q
-        
+
+        current_q = self.q(state, action)
+
         # compute critic loss
         critic_loss = F.mse_loss(current_q, target_q)
 
@@ -114,7 +115,7 @@ class DDPGAgent(BaseAgent):
             if not evaluation:
                 expl_noise = 0.3 * self.max_action # the stddev of the expl_noise if not evaluation
                 action += torch.randn_like(action) * (expl_noise)
-                action = torch.clamp(action, -self.max_action, self.max_action)
+                #action = torch.clamp(action, -self.max_action, self.max_action)
         
         return action, {}
 
@@ -174,6 +175,7 @@ class DDPGAgent(BaseAgent):
         run_episode_reward=[]
         log_count=0
         
+        print("Training started: ",self.cfg.train_episodes)
         for ep in range(self.cfg.train_episodes + 1):
             # collect data and update the policy
             train_info = self.train_iteration()
