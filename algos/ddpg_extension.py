@@ -135,11 +135,11 @@ class DDPGExtension(DDPGAgent):
 
         # compute distance to closest goal
         dist_to_goal = np.min(np.linalg.norm(goals - robot, axis=1))
-
+        
         # compute distance to closest avoid
         dist_to_avoid = np.min(np.linalg.norm(avoids - robot, axis=1))
 
         # compute heuristic reward
         reward = (dist_to_avoid - dist_to_goal) * self.max_action * 0.1
-
+        
         return reward
