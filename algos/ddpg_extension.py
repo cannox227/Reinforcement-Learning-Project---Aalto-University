@@ -54,16 +54,15 @@ class DDPGExtension(DDPGAgent):
         current_q2 = self.q2(state, action)
 
         # compute critic loss
-        critic_loss = F.cross_entropy(current_q1, target_q)
-        critic_loss2 = F.cross_entropy(current_q2, target_q)
-        
+        critic_loss = F.mse_loss(current_q1, target_q)
+        critic_loss2 = F.mse_loss(current_q2, target_q)
+
         # optimize the critics
         self.q_optim.zero_grad()
-        critic_loss.backward()
-        self.q_optim.step()
-
         self.q2_optim.zero_grad()
+        critic_loss.backward()
         critic_loss2.backward()
+        self.q_optim.step()
         self.q2_optim.step()
 
         self.iterations+=1
