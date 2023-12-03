@@ -114,7 +114,6 @@ class DDPGAgent(BaseAgent):
             if not evaluation:
                 expl_noise = 0.3 * self.max_action # the stddev of the expl_noise if not evaluation
                 action += torch.randn_like(action) * (expl_noise)
-                #action = torch.clamp(action, -self.max_action, self.max_action)
         
         return action, {}
 
